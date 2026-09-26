@@ -22,8 +22,13 @@ export function formatDuration(ms?: number): string | null {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
+/**
+ * Matches x.com / twitter.com post links (with or without protocol, any
+ * subdomain like mobile./m./www.), common embed-fixer mirrors, and the
+ * handle-less `/i/web/status/` and `/i/status/` forms.
+ */
 const TWEET_URL_PATTERN =
-  /^https?:\/\/(?:www\.)?(?:twitter\.com|x\.com|mobile\.twitter\.com)\/(?:#!\/)?\w{1,15}\/status(?:es)?\/(\d+)/i;
+  /(?:^|\s|\/\/)(?:[\w-]+\.)*(?:twitter\.com|x\.com|fxtwitter\.com|fixupx\.com|vxtwitter\.com|fixvx\.com)\/(?:#!\/)?(?:i\/web\/|\w{1,15}\/)status(?:es)?\/(\d{1,25})/i;
 
 /** Bare numeric id pasted directly. */
 function isBareId(value: string): boolean {
