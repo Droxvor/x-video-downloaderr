@@ -4,6 +4,7 @@ import { memo, useCallback, useRef, useState } from "react";
 import {
   Check as CheckIcon,
   Download as DownloadIcon,
+  Scissors as ScissorsIcon,
   TriangleAlert as ExclamationTriangleIcon,
   Image as ImageIcon,
   Play as PlayIcon,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import type { ResolvedAsset, VideoVariant } from "@/lib/types";
 import { buildDownloadHref, cn, formatDuration } from "@/lib/utils";
+import { VideoEditor } from "@/components/downloader/video-editor";
 
 const KIND_LABEL: Record<ResolvedAsset["kind"], string> = {
   video: "Video",
@@ -102,6 +104,10 @@ function MediaPreviewImpl({ asset, filenameSeed, position, total }: MediaPreview
     window.setTimeout(() => setJustDownloaded(false), 1600);
   }, []);
 
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const handleOpenEditor = useCallback(() => setIsEditorOpen(true), []);
+  const handleCloseEditor = useCallback(() => setIsEditorOpen(false), []);
+
   const previewUrlFor = useCallback(
     (remoteUrl: string, seed: string) =>
       previewSource === "direct" ? remoteUrl : buildDownloadHref(remoteUrl, seed, "inline"),
@@ -124,9 +130,17 @@ function MediaPreviewImpl({ asset, filenameSeed, position, total }: MediaPreview
     "attachment",
   );
 
+  // The editor's ffmpeg instance fetches raw bytes itself, so it always
+  // needs the same-origin proxy URL — never the direct CDN link, since
+  // twimg.com doesn't reliably send CORS headers for cross-origin reads.
+  const editorSourceUrl = activeVariant
+    ? buildDownloadHref(activeVariant.url, `${filenameSeed}-${asset.id}`, "inline")
+    : undefined;
+
   const aspectRatio = asset.width && asset.height ? `${asset.width} / ${asset.height}` : "16 / 9";
   const duration = formatDuration(asset.durationMs);
   const showPlayButton = asset.kind === "video" && !isPlaying;
+  const canEdit = asset.kind !== "photo" && Boolean(editorSourceUrl);
 
   return (
     <div className="group border border-line bg-surface-1 h-fit transition-colors duration-150 hover:border-line-strong">
@@ -221,6 +235,21 @@ function MediaPreviewImpl({ asset, filenameSeed, position, total }: MediaPreview
           </label>
         )}
 
+        {canEdit && (
+          <button
+            type="button"
+            onClick={handleOpenEditor}
+            className={cn(
+              "flex items-center gap-1.5 border border-line px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.06em] text-ink-muted",
+              "transition-colors hover:border-line-strong hover:text-ink",
+              variants.length <= 1 && "ml-auto",
+            )}
+          >
+            <ScissorsIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            Edit
+          </button>
+        )}
+
         <a
           href={downloadHref}
           download
@@ -228,7 +257,7 @@ function MediaPreviewImpl({ asset, filenameSeed, position, total }: MediaPreview
           className={cn(
             "flex items-center gap-1.5 border border-ink bg-ink px-3 py-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-canvas",
             "transition-transform duration-100 hover:opacity-90 active:translate-y-px",
-            variants.length <= 1 && "ml-auto",
+            variants.length <= 1 && !canEdit && "ml-auto",
           )}
         >
           {justDownloaded ? (
@@ -244,6 +273,15 @@ function MediaPreviewImpl({ asset, filenameSeed, position, total }: MediaPreview
           )}
         </a>
       </div>
+
+      {isEditorOpen && editorSourceUrl && (
+        <VideoEditor
+          sourceUrl={editorSourceUrl}
+          filenameSeed={`${filenameSeed}-${asset.id}`}
+          aspectRatio={aspectRatio}
+          onClose={handleCloseEditor}
+        />
+      )}
     </div>
   );
 }
